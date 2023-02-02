@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ScrollView, Image, FlatList, TextInput, TouchableHighlight } from 'react-native';
+import { Keyboard, StyleSheet, Text, View, ScrollView, Image, FlatList, TextInput, TouchableHighlight, Button } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -162,17 +162,42 @@ function Settings() {
 
 
 
+function AuthScreen(){
+  return (<View style={{width: '100%', height: '100%', backgroundColor: "#1B1B1B", padding:30, paddingTop: 60}}>
+      <StatusBar style='light'/>
+
+    <View style={{flexDirection: 'row', alignItems: 'flex-end',}}>
+      <Image source={require("./assets/shopping-cart-white.png")}  style={{width: 100, height: 100}}/>
+      <View style={{marginLeft: 8}}>
+        <Text style={{color: 'white', fontSize: 40, fontWeight: '700', }}>VALORANT</Text>
+        <Text style={{color: '#EB0029', fontSize: 40, fontWeight: '700'}}>Shop</Text>
+      </View>
+    </View> 
+     <View style={{marginTop: 16}}>
+      <TextInput placeholder='Username' autoCorrect={false} autoComplete='username' autoCapitalize='none' style={{padding: 20, backgroundColor: 'white', borderRadius: 3}} />
+      <TextInput placeholder='Password' secureTextEntry={true} autoCorrect={false} autoComplete='password' style={{padding: 20, backgroundColor: 'white', marginTop: 16, borderRadius: 3}} />
+
+      <View style={{ marginTop: 16, flexDirection: 'row', justifyContent: 'space-between'}}>
+        <View style={{backgroundColor:'#D9D9D9', borderRadius: 3}} >
+          <Button onPress={()=>{Keyboard.dismiss()}} title="NA" color="#1B1B1B" width="50" />
+        </View>
+        <View style={{backgroundColor:'#D13639', width: 100, borderRadius: 3}} >
+          <Button onPress={()=>{Keyboard.dismiss()}} title="Login" color="#FFFF" width="150" />
+        </View>
+      </View>
+    </View>
+  </View>);
+}
+
 const Tab = createBottomTabNavigator();
 
 export default function App() {
   
-  const [auth, notAuth] = useState(false);
+  const [auth, notAuth] = useState(true);
 
   if(auth){
     return (
-      <View>
-        <Text>Auth Screen</Text>
-      </View>
+      <AuthScreen />
     )
   }
   return (
