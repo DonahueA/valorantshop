@@ -1,15 +1,13 @@
 import { StatusBar } from 'expo-status-bar';
-import { Keyboard, StyleSheet, Text, View, ScrollView, Image, FlatList, TextInput, TouchableHighlight, Button } from 'react-native';
+import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {useEffect, useState, useContext, createContext} from 'react';
+import {useState} from 'react';
 import { AuthContext } from "./AuthContext";
 
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import {AuthScreen} from "./Screens/AuthScreen"
 import  {Settings}  from './Screens/SettingsScreen';
@@ -26,13 +24,13 @@ function Item({skinData, selected, onPress}){
   return  <TouchableHighlight onPress={onPress}>
   <View style={{height: 80, width: '100%', padding: 10, borderRadius: 6,  backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0, borderColor: selected ? "white" : tierColors[skinData.contentTierUuid], borderWidth: 2}}>
     <Text style={{position: 'absolute', top:5, left: 5, textTransform: 'uppercase', fontWeight: '600', color: 'white'}}>{skinData.displayName}</Text>
-    <Image source={{uri: skinData.displayIcon}}  style={{width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5}}/>
+    <Image source={{uri: skinData.levels[0].displayIcon}}  style={{width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5}}/>
   </View>
   </TouchableHighlight>
 }
 function Filter() {
 
-  const [filter, setFilter] = useState('smite');
+  const [filter, setFilter] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [notificationSetting, setNotificationSetting] = useState("never");
 
