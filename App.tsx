@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight } from 'react-native';
+import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight, Button } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -18,18 +18,33 @@ import { tierColors } from './Constants';
 import Listsvg from "./assets/list.svg";
 import Settingssvg from "./assets/settings.svg";
 import Shoppingcartsvg from "./assets/shopping-cart.svg";
+import Heartsvg from "./assets/heart.svg";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let skins = require('./assets/skins.json');
 
+function symmetricDifference(setA, setB) {
+  const _difference = new Set(setA);
+  for (const elem of setB) {
+    if (_difference.has(elem)) {
+      _difference.delete(elem);
+    } else {
+      _difference.add(elem);
+    }
+  }
+  return _difference;
+}
 
 
 function Item({ skinData, selected, onPress }) {
 
   return <TouchableHighlight onPress={onPress}>
-    <View style={{ height: 80, width: '100%', padding: 10, borderRadius: 6, backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0, borderColor: selected ? "white" : tierColors[skinData.contentTierUuid], borderWidth: 2 }}>
+    <View style={{ height: 80, width: '100%', padding: 10, borderRadius: 6, backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0}}>
       <Text style={{ position: 'absolute', top: 5, left: 5, textTransform: 'uppercase', fontWeight: '600', color: 'white' }}>{skinData.displayName}</Text>
       <Image source={{ uri: skinData.levels[0].displayIcon }} style={{ width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5 }} />
+      
+      <Heartsvg color={"#ffffff"} fill={selected ? "white" : "none"} style={{position: 'absolute', bottom: 5, left: 5}}/>
+      
     </View>
   </TouchableHighlight>
 }
@@ -37,6 +52,7 @@ function Filter() {
 
   const [filter, setFilter] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set());
+  const [newSelectedItems, setNewSelectedItems] = useState( new Set());
   const [notificationSetting, setNotificationSetting] = useState("never");
 
 
@@ -59,15 +75,25 @@ function Filter() {
 
           renderItem={({ item }) => <Item skinData={item}
             onPress={() => {
-              const newSelected = new Set(selectedItems);
-              newSelected.has(item.uuid) ? newSelected.delete(item.uuid) : newSelected.add(item.uuid);
-              setSelectedItems(newSelected);
+              const updated = new Set(newSelectedItems);
+              newSelectedItems.has(item.uuid) ? updated.delete(item.uuid) : updated.add(item.uuid);
+              setNewSelectedItems(updated);
             }
             }
-            selected={selectedItems.has(item.uuid)} />}
+            selected={selectedItems.has(item.uuid) !== newSelectedItems.has(item.uuid)} />}
           keyExtractor={item => item.uuid}
         />
       </View>
+      {newSelectedItems.size != 0 &&
+      <View style={{position: 'absolute', width: 250 , bottom: 20, flexDirection: 'row', justifyContent: 'space-between'}}>
+        <View style={{width: 100, paddingVertical:5, backgroundColor: "grey", borderRadius: 5}}>
+          <Button color={"white"} title="Save" onPress={()=>{setSelectedItems(symmetricDifference(newSelectedItems, selectedItems)); setNewSelectedItems(new Set())}} />
+        </View>
+        <View style={{width: 100, paddingVertical:5, backgroundColor: "grey", borderRadius: 5}}>
+          <Button color={"white"} title="Cancel" onPress={()=>{setNewSelectedItems(new Set())}}/>
+        </View>
+      </View>
+      }
     </View>
   );
 }
@@ -80,7 +106,7 @@ export default function App() {
   useEffect(() => {
     AsyncStorage.getItem('@token').then(token => { setAuth(token); })
   }, []);
-  
+
   if (!auth) {
     return (
       <AuthContext.Provider value={{ auth, setAuth }}>
@@ -106,7 +132,7 @@ export default function App() {
               <Shoppingcartsvg color={color} />
             ),
           }} />
-          <Tab.Screen name="Filter" component={Filter} options={{
+          <Tab.Screen name="Favorites" component={Filter} options={{
             tabBarIcon: ({ color, size }) => (
               <Listsvg color={color} />
             ),
