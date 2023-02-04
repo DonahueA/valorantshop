@@ -4,5 +4,7 @@ export const tierColors ={
     'e046854e-406c-37f4-6607-19a9ba8426fc' : '#574517',
     '60bca009-4182-7998-dee7-b8a2558dc369' : '#341b26',
     '12683d76-48d7-84a3-4e09-6985794f0445' : '#1c2a37',
-    '411e4a55-4e59-7757-41f0-86a53f101bb5' : '#3a3a1e'
+    '411e4a55-4e59-7757-41f0-86a53f101bb5' : '#3a3a1e' //ElderFlame Vandal
 }
+
+export const BASE_URL = "http://192.168.0.116:3000"

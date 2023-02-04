@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { View, ScrollView , StyleSheet, Image, Text} from "react-native";
-
+import { AuthContext } from "../AuthContext";
 let skins = require('../assets/skins.json');
 
-import { tierColors } from "../Constants";
+import { BASE_URL, tierColors } from "../Constants";
 const tierImages = {
     '0cebb8be-46d7-c12a-d306-e9907bfc5a25' : require('../assets/0cebb8be-46d7-c12a-d306-e9907bfc5a25.png'),
     'e046854e-406c-37f4-6607-19a9ba8426fc' : require('../assets/e046854e-406c-37f4-6607-19a9ba8426fc.png'),
@@ -13,7 +13,6 @@ const tierImages = {
   }
   
 function getSecondsToRefresh(){
-
     let now= new Date()
   
     let refreshDate = new Date(now)
@@ -28,7 +27,7 @@ function getSecondsToRefresh(){
   }
 
   
-function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon} ){
+function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon, price} ){
 
     return <View style={[gunCard.gunCard,     {backgroundColor: tierColors[contentTierUuid]},]}>
   
@@ -36,7 +35,7 @@ function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon} ){
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           <Image source={{uri: "https://media.valorant-api.com/currencies/85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741/displayicon.png"}} style={{width: 16, height: 16}}/>
           
-          <Text style={{color: 'white', alignSelf: 'flex-end'}}>3,550</Text>
+          <Text style={{color: 'white', alignSelf: 'flex-end'}}>{price}</Text>
           <Image source={tierImages[contentTierUuid]} style={{width: 16, height: 16}} />
         </View>
       </View>
@@ -79,21 +78,52 @@ function secondsToHHMMSS(seconds){
 }
 
 export function ShopScreen() {
-    let shop_guns = skins.data.slice(20,28)
+
+    const {auth, setAuth} = useContext(AuthContext);
   
+    let [gunData, setGunData] = useState([]);
+
     let [secondsToRefresh, setSecondsToRefresh] = useState(getSecondsToRefresh());
+    
+
+    useEffect(()=>{
+
+      if(!auth){
+        return;
+      }
+      let isActive = true;
+      console.log(BASE_URL)
+      fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
+        data=> data.json().then(r => {
+          if(isActive) {r.success ? setGunData(r.shop) : setAuth('');} }))
+
+
+      return ()=>{isActive = false}
+      
+    }, [])
+
     useEffect(()=>{
       let timer = setInterval(()=>{
-        setSecondsToRefresh(secondsToRefresh-1);
+        if(secondsToRefresh == 0){
+
+          fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
+            data=> data.json().then(r => {
+              {r.success ? setGunData(r.shop) : setAuth('');} 
+              }))
+          setSecondsToRefresh(getSecondsToRefresh());
+        }else{
+          setSecondsToRefresh(secondsToRefresh-1);
+
+        }
       }, 1000)
       return ()=>clearTimeout(timer);
     })
-  
+    
     return (
       <View style={styles.container}>
         <Text style={{alignSelf: 'flex-start', color: 'white'}}>Resets in {secondsToHHMMSS(secondsToRefresh)}</Text>
         <ScrollView style={styles.gunCardWrapper}>
-          {shop_guns.map((f, index)=> <GunComponent key={index} contentTierUuid={f.contentTierUuid} displayIcon={f.displayIcon} displayName={f.displayName} themeUuid={f.themeUuid} />)}
+          {gunData.map((f, index)=> <GunComponent key={index} price={f.price} contentTierUuid={f.contentTierUuid} displayIcon={f.displayIcon} displayName={f.displayName} themeUuid={f.themeUuid} />)}
         </ScrollView>
       </View>
     );

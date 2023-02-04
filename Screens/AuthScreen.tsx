@@ -3,6 +3,9 @@ import { StatusBar } from "expo-status-bar";
 import React, { useContext, useState } from "react";
 import { Keyboard, Text, View, Image, TextInput, Button } from "react-native";
 import { AuthContext } from "../AuthContext";
+import { BASE_URL } from "../Constants";
+
+
 
 export function AuthScreen(){
   const { setAuth } : any = useContext(AuthContext);
@@ -40,9 +43,6 @@ export function AuthScreen(){
             setLoggingIn(true);
             let response =  await (await servResponse).json();
             setLoggingIn(false);
-            
-
-            
 
             if(response.success){
               AsyncStorage.setItem('@token', response.token)
