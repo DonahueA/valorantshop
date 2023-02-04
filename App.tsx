@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight, Button } from 'react-native';
+import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight, Button, Touchable, Keyboard, TouchableWithoutFeedback } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -38,7 +38,7 @@ function symmetricDifference(setA, setB) {
 
 function Item({ skinData, selected, onPress }) {
 
-  return <TouchableHighlight onPress={onPress}>
+  return <TouchableHighlight onPress={onPress} activeOpacity={0.7} underlayColor={'transparent'}>
     <View style={{ height: 80, width: '100%', padding: 10, borderRadius: 6, backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0}}>
       <Text style={{ position: 'absolute', top: 5, left: 5, textTransform: 'uppercase', fontWeight: '600', color: 'white' }}>{skinData.displayName}</Text>
       <Image source={{ uri: skinData.levels[0].displayIcon }} style={{ width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5 }} />
@@ -54,24 +54,28 @@ function Filter() {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [newSelectedItems, setNewSelectedItems] = useState( new Set());
   const [notificationSetting, setNotificationSetting] = useState("never");
-
+  const [filterFavorites, setFilterFavorites] = useState(false);
 
   return (
     <View style={styles.container}>
-      {/* <Picker selectedValue={notificationSetting} onValueChange={(itemValue, itemIndex) =>setNotificationSetting(itemValue)}>
-        <Picker.Item label="Never" value="never" />
-        <Picker.Item label="Shop Refresh" value="shop-refresh" />
-        <Picker.Item label="Selected Guns" value="selected-guns" />
-      </Picker> */}
-      <TextInput
-        style={{ width: 200, padding: 10, marginBottom: 12, backgroundColor: "white", color: "black" }}
-        placeholder="Search"
-        onChangeText={newText => setFilter(newText.toLowerCase())}
 
-      />
+
+      <View style={{width :"100%", flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' , marginBottom: 12}}>
+        <TextInput
+          style={{flex: 1, width: 200,  borderRadius: 3, padding: 10, backgroundColor: "white", color: "black" }}
+          placeholder="Search"
+          onChangeText={newText => setFilter(newText.toLowerCase())}
+          
+        />
+        <TouchableHighlight style={{marginLeft: 6}} onPress={() => {(setFilterFavorites(!filterFavorites))}} activeOpacity={0.7} underlayColor={'transparent'} >
+          <Heartsvg  stroke={'white'} fill={filterFavorites ? 'white': 'none'} width={40} height={40} />
+        </TouchableHighlight>
+      </View>
+      <TouchableWithoutFeedback onPress={()=>{Keyboard.dismiss()}}>
       <View style={{ width: '100%' }}>
         <FlatList
-          data={skins.data.filter(skin => skin.displayName.toLowerCase().includes(filter))}
+          ListEmptyComponent={<View><Text style={{color:"white"}}>No matching skins</Text></View>}
+          data={skins.data.filter(skin => skin.displayName.toLowerCase().includes(filter) && (!filterFavorites || (selectedItems.has(skin.uuid) !== newSelectedItems.has(skin.uuid)) ) )}
 
           renderItem={({ item }) => <Item skinData={item}
             onPress={() => {
@@ -84,6 +88,7 @@ function Filter() {
           keyExtractor={item => item.uuid}
         />
       </View>
+      </TouchableWithoutFeedback>
       {newSelectedItems.size != 0 &&
       <View style={{position: 'absolute', width: 250 , bottom: 20, flexDirection: 'row', justifyContent: 'space-between'}}>
         <View style={{width: 100, paddingVertical:5, backgroundColor: "grey", borderRadius: 5}}>
@@ -98,14 +103,22 @@ function Filter() {
   );
 }
 
+function Splash(){
+  return <View></View>
+}
 const Tab = createBottomTabNavigator();
 export default function App() {
 
+  const [loading, setLoading] = useState(true);
   const [auth, setAuth] = useState<string | null>('');
 
   useEffect(() => {
     AsyncStorage.getItem('@token').then(token => { setAuth(token); })
   }, []);
+
+  if (loading){
+    <Splash />
+  }
 
   if (!auth) {
     return (

@@ -9,7 +9,7 @@ export function Settings(){
     const [open, setOpen] = useState(false);
     const [value, setValue] = useState('never');
 
-    return <View style={{   alignItems: "center", justifyContent: "center",  backgroundColor: '#1B1B1B', flex: 1}}>
+    return <View style={{   alignItems: "center", justifyContent: "space-around",  backgroundColor: '#1B1B1B', flex: 1}}>
       {/* <Text style={{color: 'white', fontSize:24}}>Account Settings</Text> */}
 
       <View style={{maxWidth:250, zIndex: 1, elevation: 1}}>
