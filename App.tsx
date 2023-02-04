@@ -1,31 +1,36 @@
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import {useState} from 'react';
+import { useState } from 'react';
 import { AuthContext } from "./AuthContext";
 
 
-
-
-import {AuthScreen} from "./Screens/AuthScreen"
-import  {Settings}  from './Screens/SettingsScreen';
-
-import React from 'react';
+//Screens
+import { AuthScreen } from "./Screens/AuthScreen"
+import { Settings } from './Screens/SettingsScreen';
 import { ShopScreen } from './Screens/ShopScreen';
+
+//Constants and Images
 import { tierColors } from './Constants';
+import Listsvg from "./assets/list.svg";
+import Settingssvg from "./assets/settings.svg";
+import Shoppingcartsvg from "./assets/shopping-cart.svg";
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 let skins = require('./assets/skins.json');
 
 
 
-function Item({skinData, selected, onPress}){
+function Item({ skinData, selected, onPress }) {
 
-  return  <TouchableHighlight onPress={onPress}>
-  <View style={{height: 80, width: '100%', padding: 10, borderRadius: 6,  backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0, borderColor: selected ? "white" : tierColors[skinData.contentTierUuid], borderWidth: 2}}>
-    <Text style={{position: 'absolute', top:5, left: 5, textTransform: 'uppercase', fontWeight: '600', color: 'white'}}>{skinData.displayName}</Text>
-    <Image source={{uri: skinData.levels[0].displayIcon}}  style={{width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5}}/>
-  </View>
+  return <TouchableHighlight onPress={onPress}>
+    <View style={{ height: 80, width: '100%', padding: 10, borderRadius: 6, backgroundColor: tierColors[skinData.contentTierUuid], marginVertical: 8, marginHorizontal: 0, borderColor: selected ? "white" : tierColors[skinData.contentTierUuid], borderWidth: 2 }}>
+      <Text style={{ position: 'absolute', top: 5, left: 5, textTransform: 'uppercase', fontWeight: '600', color: 'white' }}>{skinData.displayName}</Text>
+      <Image source={{ uri: skinData.levels[0].displayIcon }} style={{ width: '66%', height: 55, borderColor: 'red', position: 'absolute', right: 5, bottom: 5 }} />
+    </View>
   </TouchableHighlight>
 }
 function Filter() {
@@ -43,25 +48,25 @@ function Filter() {
         <Picker.Item label="Selected Guns" value="selected-guns" />
       </Picker> */}
       <TextInput
-        style={{ width:200, padding:10, marginBottom: 12, backgroundColor: "white", color: "black"}}
+        style={{ width: 200, padding: 10, marginBottom: 12, backgroundColor: "white", color: "black" }}
         placeholder="Search"
         onChangeText={newText => setFilter(newText.toLowerCase())}
-        
+
       />
-      <View style={{width: '100%'}}>
-      <FlatList
-        data={skins.data.filter(skin=>skin.displayName.toLowerCase().includes(filter))}
-       
-        renderItem={({item}) => <Item skinData={item}
-          onPress={()=>{
-            const newSelected = new Set(selectedItems);
-            newSelected.has(item.uuid) ? newSelected.delete(item.uuid) : newSelected.add(item.uuid);
-            setSelectedItems(newSelected);
+      <View style={{ width: '100%' }}>
+        <FlatList
+          data={skins.data.filter(skin => skin.displayName.toLowerCase().includes(filter))}
+
+          renderItem={({ item }) => <Item skinData={item}
+            onPress={() => {
+              const newSelected = new Set(selectedItems);
+              newSelected.has(item.uuid) ? newSelected.delete(item.uuid) : newSelected.add(item.uuid);
+              setSelectedItems(newSelected);
             }
-          }
-          selected={selectedItems.has(item.uuid)} />}
-        keyExtractor={item => item.uuid}
-      />
+            }
+            selected={selectedItems.has(item.uuid)} />}
+          keyExtractor={item => item.uuid}
+        />
       </View>
     </View>
   );
@@ -69,27 +74,50 @@ function Filter() {
 
 const Tab = createBottomTabNavigator();
 export default function App() {
-  
-  const [auth, setAuth] = useState<string | null>('asdffdsf');
 
-  if(!auth){
+  const [auth, setAuth] = useState<string | null>('');
+
+  useEffect(() => {
+    AsyncStorage.getItem('@token').then(token => { setAuth(token); })
+  }, []);
+  
+  if (!auth) {
     return (
-      <AuthContext.Provider value={{auth, setAuth}}>
+      <AuthContext.Provider value={{ auth, setAuth }}>
         <AuthScreen />
       </AuthContext.Provider>
     )
   }
+
   return (
-    <AuthContext.Provider value={{auth, setAuth}}>
-    <NavigationContainer>
-      <StatusBar style='light'/>
-      <Tab.Navigator screenOptions={{headerShown: false}} >
-        
-        <Tab.Screen name="Shop" component={ShopScreen} />
-        <Tab.Screen name="Filter" component={Filter} />
-        <Tab.Screen name="Settings" component={Settings} />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <AuthContext.Provider value={{ auth, setAuth }}>
+      <NavigationContainer>
+        <StatusBar style='light' />
+        <Tab.Navigator screenOptions={{
+          headerShown: false,
+          tabBarActiveBackgroundColor: '#464646',
+          tabBarInactiveBackgroundColor: '#333333',
+          tabBarActiveTintColor: '#ffffff',
+          tabBarStyle: { borderTopWidth: 0 }
+        }}  >
+
+          <Tab.Screen name="Shop" component={ShopScreen} options={{
+            tabBarIcon: ({ color, size }) => (
+              <Shoppingcartsvg color={color} />
+            ),
+          }} />
+          <Tab.Screen name="Filter" component={Filter} options={{
+            tabBarIcon: ({ color, size }) => (
+              <Listsvg color={color} />
+            ),
+          }} />
+          <Tab.Screen name="Settings" component={Settings} options={{
+            tabBarIcon: ({ color, size }) => (
+              <Settingssvg color={color} />
+            ),
+          }} />
+        </Tab.Navigator>
+      </NavigationContainer>
     </AuthContext.Provider>
 
   );

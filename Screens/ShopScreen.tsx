@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect, useContext } from "react";
 import { View, ScrollView , StyleSheet, Image, Text} from "react-native";
 import { AuthContext } from "../AuthContext";
@@ -92,11 +93,16 @@ export function ShopScreen() {
         return;
       }
       let isActive = true;
-      console.log(BASE_URL)
       fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
         data=> data.json().then(r => {
-          if(isActive) {r.success ? setGunData(r.shop) : setAuth('');} }))
-
+          if (r.success){
+              setGunData(r.shop)
+            }else{
+              console.log("Deleting token, failed.")
+              setAuth('');
+              AsyncStorage.setItem('@token', '') 
+          } 
+          }))
 
       return ()=>{isActive = false}
       
@@ -108,7 +114,13 @@ export function ShopScreen() {
 
           fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
             data=> data.json().then(r => {
-              {r.success ? setGunData(r.shop) : setAuth('');} 
+              if (r.success){
+                  setGunData(r.shop)
+                }else{
+                  console.log("Deleting token, failed.")
+                  setAuth('');
+                  AsyncStorage.setItem('@token', '') 
+              } 
               }))
           setSecondsToRefresh(getSecondsToRefresh());
         }else{
