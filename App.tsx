@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight, Button, Touchable, Keyboard, TouchableWithoutFeedback } from 'react-native';
-
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useState } from 'react';
+
+
+//Context
 import { AuthContext } from "./AuthContext";
 
 
@@ -50,11 +52,24 @@ function Item({ skinData, selected, onPress }) {
 }
 function Filter() {
 
+  const {auth} = useContext(AuthContext);
   const [filter, setFilter] = useState('');
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [newSelectedItems, setNewSelectedItems] = useState( new Set());
-  const [notificationSetting, setNotificationSetting] = useState("never");
   const [filterFavorites, setFilterFavorites] = useState(false);
+
+  useEffect(()=>{
+    fetch("http://192.168.0.116:3000/api/favorites", {method: 'POST', body: JSON.stringify({id: auth})}).then(r=>r.json().then(j =>{ 
+  
+    if (j.success){
+        let temp = new Set();
+        for (const item of j.favorites){
+          temp.add(item.gun_uuid)
+        }
+        setSelectedItems(temp)
+      }
+    }));
+  }, [])
 
   return (
     <View style={styles.container}>
@@ -92,7 +107,12 @@ function Filter() {
       {newSelectedItems.size != 0 &&
       <View style={{position: 'absolute', width: 250 , bottom: 20, flexDirection: 'row', justifyContent: 'space-between'}}>
         <View style={{width: 100, paddingVertical:5, backgroundColor: "grey", borderRadius: 5}}>
-          <Button color={"white"} title="Save" onPress={()=>{setSelectedItems(symmetricDifference(newSelectedItems, selectedItems)); setNewSelectedItems(new Set())}} />
+          <Button color={"white"} title="Save" onPress={()=>{
+            const updatedSet = symmetricDifference(newSelectedItems, selectedItems);
+            //TODO notify  update failure/success
+            fetch("http://192.168.0.116:3000/api/favorites", {method: 'PUT', body: JSON.stringify({id: auth, favorites: Array.from(updatedSet.values())})})
+            setSelectedItems(updatedSet);
+            setNewSelectedItems(new Set())}} />
         </View>
         <View style={{width: 100, paddingVertical:5, backgroundColor: "grey", borderRadius: 5}}>
           <Button color={"white"} title="Cancel" onPress={()=>{setNewSelectedItems(new Set())}}/>

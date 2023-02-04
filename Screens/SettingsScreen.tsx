@@ -1,16 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useContext, useState } from "react";
+import React, { useContext, useEffect, useState } from "react";
 import { Text, View, Button } from "react-native";
 import { AuthContext } from "../AuthContext";
 import DropDownPicker from 'react-native-dropdown-picker';
 
 export function Settings(){
-    const {setAuth} : any = useContext(AuthContext);
+    const {auth, setAuth} : any = useContext(AuthContext);
     const [open, setOpen] = useState(false);
-    const [value, setValue] = useState('never');
+    const [value, setValue] = useState('NEVER');
 
+    useEffect(()=>{
+      AsyncStorage.getItem('@notification_reference').then(notification_reference => { setValue(notification_reference); })
+    }, [])
+    
     return <View style={{   alignItems: "center", justifyContent: "space-around",  backgroundColor: '#1B1B1B', flex: 1}}>
-      {/* <Text style={{color: 'white', fontSize:24}}>Account Settings</Text> */}
 
       <View style={{maxWidth:250, zIndex: 1, elevation: 1}}>
         <View style={{width: "100%",flexDirection: "row", justifyContent: "space-between", alignItems: "baseline"}}>
@@ -21,10 +24,16 @@ export function Settings(){
           value={value}
           setOpen={setOpen}
           setValue={setValue}
+          onSelectItem={(item)=>{
+            //TODO: error handling
+            fetch("http://192.168.0.116:3000/api/notification", {method: 'PUT', body: JSON.stringify({id: auth, notification_preference: item.value})});
+            AsyncStorage.setItem('@notification_reference', item.value)
+ 
+          }}
           items={[
-            {label: 'Always', value: 'always'},
-            {label: 'Favorites', value: 'favorites'},
-            {label: 'Never', value: 'never'}
+            {label: 'Always', value: 'ALWAYS'},
+            {label: 'Favorites', value: 'FAVORITES'},
+            {label: 'Never', value: 'NEVER'}
           ]}
           />
           </View>
