@@ -30,15 +30,14 @@ async function getEntitlement(access_token) {
   })
 
   let r = await response.json()
-  console.log(r)
   if(r.errorCode =="CREDENTIALS_EXPIRED"){
     throw("CREDENTIALS_EXPIRED")
   }
   return r.entitlements_token
 }
-async function getStorefrontV2(access_token, puuid, entitlements_token){
+async function getStorefrontV2(access_token, puuid, entitlements_token, region){
 
-  const response = await fetch(`https://pd.na.a.pvp.net/store/v2/storefront/${puuid}`,
+  const response = await fetch(`https://pd.${region}.a.pvp.net/store/v2/storefront/${puuid}`,
    {
       method: "GET",
       headers: {
@@ -53,10 +52,10 @@ async function getStorefrontV2(access_token, puuid, entitlements_token){
 }
 
 
-async function StoreFromAccessToken(access_token){
+async function StoreFromAccessToken(access_token, region){
   const puuid =  await getPuuid(access_token);
   const entitlements_token = await getEntitlement(access_token);
-  const shop = await getStorefrontV2(access_token, puuid.sub, entitlements_token);
+  const shop = await getStorefrontV2(access_token, puuid.sub, entitlements_token, region);
   return shop
 }
 
@@ -89,7 +88,7 @@ function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon, pri
     const [loading, setLoading] = useState(true)
     useEffect(()=>{
       if(displayIcon){
-        Image.getSize(displayIcon, (width, height)  => {setSize({width: width, height: height }); console.log(displayIcon, width, height)}, (error) =>{})
+        Image.getSize(displayIcon, (width, height)  => {setSize({width: width, height: height })}, (error) =>{})
 
       }
     }, [])
@@ -178,7 +177,7 @@ export function ShopScreen(initialParams) {
       //         AsyncStorage.setItem('@token', '') 
       //     } 
       //     }))
-        StoreFromAccessToken(auth).then(r=>
+        StoreFromAccessToken(auth.access_token, auth.region).then(r=>
           {
             //r.data.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
             setGunData(r.SkinsPanelLayout.SingleItemOffers.map((val: string, ind: number) => {
@@ -191,8 +190,9 @@ export function ShopScreen(initialParams) {
             }))
         // })
           }).catch(e=>{
+            console.log("Expired/signed out")
             console.log(e)
-            setAuth('')
+            setAuth(null)
           })
 
       

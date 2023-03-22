@@ -15,7 +15,7 @@ export function Settings(){
     const [value, setValue] = useState('NEVER');
 
     useEffect(()=>{
-      AsyncStorage.getItem('@notification_reference').then(notification_reference => { setValue(notification_reference); })
+      AsyncStorage.getItem('@notification_reference').then(notification_reference => { if(notification_reference) {setValue(notification_reference);} })
     }, [])
     
     return <View style={{   alignItems: "center", justifyContent: "space-around",  backgroundColor: '#1B1B1B', flex: 1}}>
@@ -61,7 +61,7 @@ export function Settings(){
             }
           }}
           items={[
-            {label: 'Always', value: 'ALWAYS'},
+            {label: 'Daily', value: 'ALWAYS'},
             // {label: 'Favorites', value: 'FAVORITES'},
             {label: 'Never', value: 'NEVER'}
           ]}

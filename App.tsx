@@ -167,11 +167,12 @@ const Tab = createBottomTabNavigator();
 export default function App() {
 
   const [loading, setLoading] = useState(true);
-  const [auth, setAuth] = useState<string | null>('');
+  const [auth, setAuth] = useState<{access_token: string, region: string} | null>(null);
   const [gunData, setGunData] = useState({});
 
   useEffect(() => {
-    AsyncStorage.getItem('@token').then(token => { setAuth(token); setLoading(false)})
+    AsyncStorage.getItem('@auth').then(token =>
+      { setAuth(JSON.parse(token)); setLoading(false)})
   }, []);
 
   //Check if we need to update the JSON
@@ -254,11 +255,6 @@ export default function App() {
     
   }, [])
 
-  useEffect(() => {
-    //Get Token
-    registerForPushNotificationsAsync().then(token => {console.log(token)});
-
-  }, []);
   
   if (loading){
     return <Splash />;

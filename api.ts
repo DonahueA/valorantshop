@@ -248,23 +248,7 @@ async function getEntitlement(access_token) {
   return r.entitlements_token
 }
 
-async function getStorefrontV2(access_token, puuid, entitlements_token){
 
-  
-  const response = await fetch(`https://pd.na.a.pvp.net/store/v2/storefront/${puuid}`,
-   {
-      method: "GET",
-      headers: {
-        'X-Riot-Entitlements-JWT': entitlements_token,
-        "Authorization": `Bearer ${access_token}`
-      }
-    }
-  )
-
-  const result = await response.json()
-
-  return result
-}
 
 async function cookieReauth(cookie) {
   

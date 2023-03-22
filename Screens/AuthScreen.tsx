@@ -87,12 +87,10 @@ export function AuthScreen(){
                 //fetch(`${BASE_URL}/api/expoToken`, {method: 'POST', body: JSON.stringify({id: response.token, expo_token: token})})
                 //});
               }else{
-                AsyncStorage.setItem('@token', response.access_token)
                 const regionData = await getRegion(response.access_token, response.id_token)
                 console.log(regionData.affinities.live)
-                AsyncStorage.setItem('@region', regionData.affinities.live)
-
-                setAuth(response.access_token)
+                AsyncStorage.setItem('@auth', JSON.stringify({access_token: response.access_token, region: regionData.affinities.live}))
+                setAuth({access_token: response.access_token, region: regionData.affinities.live})
               }
                 
             }catch(e){
@@ -102,7 +100,7 @@ export function AuthScreen(){
                 setError("Could not connect to Riot servers.")
                 //TODO: Send diagnostic data
               }
-              //console.log(e)
+              console.log(e)
             }
             }} title="Login" color="#FFFF"  />
         </View>
@@ -133,8 +131,9 @@ export function AuthScreen(){
                     setError("Could not connect to Riot servers")
                   }
                 }else{
-                  AsyncStorage.setItem('@token', result.access_token)
-                  setAuth(result.access_token)
+                const regionData = await getRegion(result.access_token, result.id_token)
+                AsyncStorage.setItem('@auth', JSON.stringify({access_token: result.access_token, region: regionData.affinities.live}))
+                setAuth({access_token: result.access_token, region: regionData.affinities.live})
 
                 }
                 
