@@ -40,7 +40,8 @@ export function AuthScreen(){
   const { setAuth } : any = useContext(AuthContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [loggingIn, setLoggingIn] = useState<"LOGIN" | "LOADING" | "MFA">("LOGIN");
+  const [loggingIn, setLoggingIn] = useState<"LOGIN" | "MFA">("LOGIN");
+  const [isLoading, setIsLoading] = useState(false);
   const [mfaCode, setMfaCode] = useState('');
 
   const [error, setError] = useState('');
@@ -66,18 +67,17 @@ export function AuthScreen(){
         {/* <View style={{backgroundColor:'#D9D9D9', borderRadius: 3}} > Region select?
           <Button onPress={()=>{Keyboard.dismiss()}} title="NA" color="#1B1B1B" />
         </View> */}
-        <View style={{backgroundColor: false ? '#a16869' : '#D13639',  width: 100, borderRadius: 3}} >
+        <View style={{backgroundColor: isLoading ? '#a16869' : '#D13639',  width: 100, borderRadius: 3}} >
           <Button onPress={async ()=>{
             Keyboard.dismiss();
             /*
             const servResponse = fetch(BASE_URL + "/api/login", {method: 'POST', body: JSON.stringify({username: username ,password: password})})
-            setLoggingIn(true);
             let response =  await (await servResponse).json();
-            setLoggingIn(false);
             */
             try{
-            const response = await authRequest(username, password);
-
+              setIsLoading(true)
+              const response = await authRequest(username, password);
+              setIsLoading(false)
               if(response.multifactor == true){
                 setLoggingIn("MFA");
                 setError("");
@@ -119,11 +119,12 @@ export function AuthScreen(){
           <View>
             <Button title="←"  color='#FFF' onPress={()=>{setLoggingIn("LOGIN");setError("")}} />
           </View>
-          <View style={{backgroundColor: false ? '#a16869' : '#D13639',  width: 100, borderRadius: 3}} >
+          <View style={{backgroundColor: isLoading ? '#a16869' : '#D13639',  width: 100, borderRadius: 3}} >
               <Button  title="Login" color='#FFF'
                onPress={async ()=>{
+                setIsLoading(true)
                 const result = await mfaRequest(mfaCode)
-                
+                setIsLoading(false)
                 if('error' in result) {
                   if(result.error == "multifactor_attempt_failed"){
                     setError("Incorrect Code")
