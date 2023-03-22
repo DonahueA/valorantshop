@@ -1,9 +1,46 @@
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Image, FlatList, TextInput, TouchableHighlight, Button, Touchable, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+
 import { useState } from 'react';
+
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+//Notification
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      //TODO Handle.
+      //alert('Failed to get push token for push notification!');
+      return;
+    }
+    token = (await Notifications.getExpoPushTokenAsync({experienceId:'@donahue/ValorantShop'})).data;
+    
+    console.log(token);
+  } else {
+    alert('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
 
 
 //Context
@@ -16,7 +53,7 @@ import { Settings } from './Screens/SettingsScreen';
 import { ShopScreen } from './Screens/ShopScreen';
 
 //Constants and Images
-import { tierColors } from './Constants';
+import { BASE_URL, tierColors } from './Constants';
 import Listsvg from "./assets/list.svg";
 import Settingssvg from "./assets/settings.svg";
 import Shoppingcartsvg from "./assets/shopping-cart.svg";
@@ -59,7 +96,7 @@ function Filter() {
   const [filterFavorites, setFilterFavorites] = useState(false);
 
   useEffect(()=>{
-    fetch("http://192.168.0.116:3000/api/favorites", {method: 'POST', body: JSON.stringify({id: auth})}).then(r=>r.json().then(j =>{ 
+    fetch(BASE_URL + "/api/favorites", {method: 'POST', body: JSON.stringify({id: auth})}).then(r=>r.json().then(j =>{ 
   
     if (j.success){
         let temp = new Set();
@@ -110,7 +147,7 @@ function Filter() {
           <Button color={"white"} title="Save" onPress={()=>{
             const updatedSet = symmetricDifference(newSelectedItems, selectedItems);
             //TODO notify  update failure/success
-            fetch("http://192.168.0.116:3000/api/favorites", {method: 'PUT', body: JSON.stringify({id: auth, favorites: Array.from(updatedSet.values())})})
+            fetch(BASE_URL + "/api/favorites", {method: 'PUT', body: JSON.stringify({id: auth, favorites: Array.from(updatedSet.values())})})
             setSelectedItems(updatedSet);
             setNewSelectedItems(new Set())}} />
         </View>
@@ -131,13 +168,100 @@ export default function App() {
 
   const [loading, setLoading] = useState(true);
   const [auth, setAuth] = useState<string | null>('');
+  const [gunData, setGunData] = useState({});
 
   useEffect(() => {
-    AsyncStorage.getItem('@token').then(token => { setAuth(token); })
+    AsyncStorage.getItem('@token').then(token => { setAuth(token); setLoading(false)})
   }, []);
 
+  //Check if we need to update the JSON
+  useEffect(()=>{
+    AsyncStorage.getItem("@apibranch").then(async branch =>{
+      //Check API version
+      const newBranch  = await (await fetch('https://valorant-api.com/v1/version')).json() as {status: number, data: {
+        manifestId: string,
+        branch: string,
+        version: string,
+        buildVersion: string,
+        engineVersion: string,
+        riotClientVersion: string,
+        riotClientBuild: string,
+        buildDate: string} } 
+    
+      //If version is new
+      if(newBranch.status == 200 && newBranch.data.branch != branch){
+        fetch('https://valorant-api.com/v1/weapons/skins').then(
+            async e=>{
+              //Get data then resort
+              if(e.status == 200){
+                const skin: { [key: string]: any } = {}
+                const data = await e.json()
+                data.data.forEach((element: any) => {
+                    skin[element.levels[0].uuid] = {
+                        displayName: element.displayName,
+                        themeUuid: element.themeUuid,
+                        contentTierUuid: element.contentTierUuid,
+                        displayIcon: element.levels[0].displayIcon,
+                    }
+                
+                });
+
+                try{
+                  
+                  AsyncStorage.setItem("@skins", JSON.stringify(skin) )
+                  AsyncStorage.setItem("@apibranch", newBranch.data.branch)
+                  setGunData(skin)
+                }catch(e){
+                  //TODO
+                }
+                console.log("Updated!")
+              }
+            }
+        )
+      }else{//Version is not new.
+        console.log("Version is not new")
+        fetch('https://valorant-api.com/v1/weapons/skins').then(
+            async e=>{
+              //Get data then resort
+              if(e.status == 200){
+                const skin: { [key: string]: any } = {}
+                const data = await e.json()
+                data.data.forEach((element: any) => {
+                    skin[element.levels[0].uuid] = {
+                        displayName: element.displayName,
+                        themeUuid: element.themeUuid,
+                        contentTierUuid: element.contentTierUuid,
+                        displayIcon: element.levels[0].displayIcon,
+                    }
+                
+                });
+
+                try{
+                  //console.log(skin)
+                  AsyncStorage.setItem("@skins", JSON.stringify(skin) )
+                  AsyncStorage.setItem("@apibranch", newBranch.data.branch)
+                  setGunData(skin)
+                }catch(e){
+                  //TODO Diagnostic
+
+                }
+              }
+            })
+
+      }
+    })
+
+    
+  }, [])
+
+  useEffect(() => {
+    //Get Token
+    registerForPushNotificationsAsync().then(token => {console.log(token)});
+
+  }, []);
+  
   if (loading){
-    <Splash />
+    return <Splash />;
   }
 
   if (!auth) {
@@ -160,16 +284,16 @@ export default function App() {
           tabBarStyle: { borderTopWidth: 0 }
         }}  >
 
-          <Tab.Screen name="Shop" component={ShopScreen} options={{
+          <Tab.Screen name="Shop" component={ShopScreen} initialParams={{gunData: gunData}} options={{
             tabBarIcon: ({ color, size }) => (
               <Shoppingcartsvg color={color} />
             ),
           }} />
-          <Tab.Screen name="Favorites" component={Filter} options={{
+          {/* <Tab.Screen name="Favorites" component={Filter} options={{
             tabBarIcon: ({ color, size }) => (
               <Listsvg color={color} />
             ),
-          }} />
+          }} /> */}
           <Tab.Screen name="Settings" component={Settings} options={{
             tabBarIcon: ({ color, size }) => (
               <Settingssvg color={color} />
@@ -195,3 +319,5 @@ const styles = StyleSheet.create({
     width: '100%',
   }
 });
+
+

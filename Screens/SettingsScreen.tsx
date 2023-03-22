@@ -1,8 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useContext, useEffect, useState } from "react";
-import { Text, View, Button } from "react-native";
+import { Text, View, Button, Alert } from "react-native";
 import { AuthContext } from "../AuthContext";
 import DropDownPicker from 'react-native-dropdown-picker';
+
+
+import * as Notifications from 'expo-notifications';
+
+
 
 export function Settings(){
     const {auth, setAuth} : any = useContext(AuthContext);
@@ -24,25 +29,51 @@ export function Settings(){
           value={value}
           setOpen={setOpen}
           setValue={setValue}
-          onSelectItem={(item)=>{
-            //TODO: error handling
-            fetch("http://192.168.0.116:3000/api/notification", {method: 'PUT', body: JSON.stringify({id: auth, notification_preference: item.value})});
-            AsyncStorage.setItem('@notification_reference', item.value)
- 
+          onSelectItem={async (item)=>{
+            if(item.value == "NEVER"){
+              AsyncStorage.setItem('@notification_reference', item.value)
+
+              Notifications.cancelAllScheduledNotificationsAsync();
+            }
+            if(item.value == "ALWAYS"){
+              const result = await Notifications.getPermissionsAsync();
+              if (!result.granted && !result.canAskAgain) {
+                Alert.alert("Missing permissions for notifications", "You must enable notifications under Settings")
+                setValue("NEVER")
+              }else if(result.granted){ 
+                AsyncStorage.setItem('@notification_reference', item.value)
+                Notifications.cancelAllScheduledNotificationsAsync();
+                Notifications.scheduleNotificationAsync({
+                  content: {
+                    title: 'Your shop has refreshed!',
+                  },
+                  trigger: {
+                    timezone: 'UTC',
+                    hour: 0,
+                    minute: 0,
+                    repeats:true
+                  },
+                });
+
+              }else{
+                setValue("NEVER");
+              }
+            }
           }}
           items={[
             {label: 'Always', value: 'ALWAYS'},
-            {label: 'Favorites', value: 'FAVORITES'},
+            // {label: 'Favorites', value: 'FAVORITES'},
             {label: 'Never', value: 'NEVER'}
           ]}
           />
+
           </View>
         </View>
       </View>
       <View >
-        <View style={{borderWidth: 1, borderColor: '#888888', marginTop: 10, width: 150, borderRadius: 3}}>
+        {/* <View style={{borderWidth: 1, borderColor: '#888888', marginTop: 10, width: 150, borderRadius: 3}}>
           <Button title='Delete Account' color={"#888888"} onPress={()=>{setAuth(null);AsyncStorage.setItem('@token', '') }} />
-        </View>
+        </View> */}
         <View style={{borderWidth: 1, borderColor: '#D13639', marginTop: 10, width: 150, borderRadius: 3}}>
           <Button title='Sign Out' color={"white"} onPress={()=>{setAuth(null);AsyncStorage.setItem('@token', '') }} />
         </View>

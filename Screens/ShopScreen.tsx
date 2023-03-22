@@ -1,10 +1,65 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect, useContext } from "react";
-import { View, ScrollView , StyleSheet, Image, Text} from "react-native";
+import { View, ScrollView , StyleSheet, Image, Text, ActivityIndicator} from "react-native";
 import { AuthContext } from "../AuthContext";
-let skins = require('../assets/skins.json');
 
-import { BASE_URL, tierColors } from "../Constants";
+import { BASE_URL, tierColors, user_agent } from "../Constants";
+
+async function getPuuid(access_token) {
+  const response = await fetch('https://auth.riotgames.com/userinfo', {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": user_agent,
+      "Authorization": `Bearer ${access_token}`
+    }
+  })
+  return await response.json()
+
+}
+
+async function getEntitlement(access_token) {
+
+  const response = await fetch('https://entitlements.auth.riotgames.com/api/token/v1', {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": user_agent,
+      "Authorization": `Bearer ${access_token}`
+    }
+  })
+
+  let r = await response.json()
+  console.log(r)
+  if(r.errorCode =="CREDENTIALS_EXPIRED"){
+    throw("CREDENTIALS_EXPIRED")
+  }
+  return r.entitlements_token
+}
+async function getStorefrontV2(access_token, puuid, entitlements_token){
+
+  const response = await fetch(`https://pd.na.a.pvp.net/store/v2/storefront/${puuid}`,
+   {
+      method: "GET",
+      headers: {
+        'X-Riot-Entitlements-JWT': entitlements_token,
+        "Authorization": `Bearer ${access_token}`
+      }
+    }
+  )
+
+  const result = await response.json()
+  return result
+}
+
+
+async function StoreFromAccessToken(access_token){
+  const puuid =  await getPuuid(access_token);
+  const entitlements_token = await getEntitlement(access_token);
+  const shop = await getStorefrontV2(access_token, puuid.sub, entitlements_token);
+  return shop
+}
+
 const tierImages = {
     '0cebb8be-46d7-c12a-d306-e9907bfc5a25' : require('../assets/0cebb8be-46d7-c12a-d306-e9907bfc5a25.png'),
     'e046854e-406c-37f4-6607-19a9ba8426fc' : require('../assets/e046854e-406c-37f4-6607-19a9ba8426fc.png'),
@@ -30,6 +85,14 @@ function getSecondsToRefresh(){
   
 function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon, price} ){
 
+    const [size, setSize] = useState<{width: number, height: number}>({width: 100, height: 100})
+    const [loading, setLoading] = useState(true)
+    useEffect(()=>{
+      if(displayIcon){
+        Image.getSize(displayIcon, (width, height)  => {setSize({width: width, height: height }); console.log(displayIcon, width, height)}, (error) =>{})
+
+      }
+    }, [])
     return <View style={[gunCard.gunCard,     {backgroundColor: tierColors[contentTierUuid]},]}>
   
       <View style={{ position: 'absolute', top: 10, right: 10}}>
@@ -43,11 +106,24 @@ function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon, pri
   
       
   
-      <View style={{alignSelf: 'center', width: '100%'}} >
-        <Image source={{uri: `https://media.valorant-api.com/themes/${themeUuid}/displayicon.png`}}  style={{left: 50, top: -50 ,width: 200, height: 200, position: 'absolute', opacity: 0.1}}/>
-        <View style={{ transform: [{scale: 0.7},{rotate: '45deg'}]}}>
-        <Image  source={{uri: displayIcon}} style={{width: 300, height:100}} />
-        </View>
+      <View style={{alignSelf: 'center', alignItems: 'center', width: '100%'}} >
+        
+          <Image source={{uri: `https://media.valorant-api.com/themes/${themeUuid}/displayicon.png`}}  style={{width: 200, height: 200, opacity: 0.1}}/>
+
+          <View style={{ transform: [{rotate: '45deg'}] ,position: 'absolute' ,left: 0, right: 0, top:0, bottom: 0, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+            
+            <Image  source={{uri: displayIcon}} style={{width: size.width/2, height: size.height/2}} onLoadEnd={()=>setLoading(false)} />
+            {loading && <ActivityIndicator
+              animating={loading}
+              style={{
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+              }}
+            /> }
+          </View>
       </View>
       
       <View style={{maxWidth: 100, position: 'absolute', bottom: 10, left: 10}}>
@@ -78,8 +154,8 @@ function secondsToHHMMSS(seconds){
     return `${hours}:${minutes}:${seconds_r}`
 }
 
-export function ShopScreen() {
-
+export function ShopScreen(initialParams) {
+    
     const {auth, setAuth} = useContext(AuthContext);
   
     let [gunData, setGunData] = useState([]);
@@ -93,16 +169,33 @@ export function ShopScreen() {
         return;
       }
       let isActive = true;
-      fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
-        data=> data.json().then(r => {
-          if (r.success){
-              setGunData(r.shop)
-            }else{
-              console.log("Deleting token, failed.")
-              setAuth('');
-              AsyncStorage.setItem('@token', '') 
-          } 
-          }))
+      // fetch(BASE_URL + "/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
+      //   data=> data.json().then(r => {
+      //     if (r.success){
+      //         setGunData(r.shop)
+      //       }else{
+      //         setAuth('');
+      //         AsyncStorage.setItem('@token', '') 
+      //     } 
+      //     }))
+        StoreFromAccessToken(auth).then(r=>
+          {
+            //r.data.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
+            setGunData(r.SkinsPanelLayout.SingleItemOffers.map((val: string, ind: number) => {
+              return {
+                  uuid: val,
+                  ...initialParams.route.params.gunData[val],
+
+                  price: r.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
+              }
+            }))
+        // })
+          }).catch(e=>{
+            console.log(e)
+            setAuth('')
+          })
+
+      
 
       return ()=>{isActive = false}
       
@@ -110,26 +203,24 @@ export function ShopScreen() {
 
     useEffect(()=>{
       let timer = setInterval(()=>{
-        if(secondsToRefresh == 0){
+        // if(secondsToRefresh == 0){
 
-          fetch("http://192.168.0.116:3000/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
-            data=> data.json().then(r => {
-              if (r.success){
-                  setGunData(r.shop)
-                }else{
-                  console.log("Deleting token, failed.")
-                  setAuth('');
-                  AsyncStorage.setItem('@token', '') 
-              } 
-              }))
-          setSecondsToRefresh(getSecondsToRefresh());
-        }else{
-          setSecondsToRefresh(secondsToRefresh-1);
+        //   fetch(BASE_URL + "/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
+        //     data=> data.json().then(r => {
+        //       if (r.success){
+        //           setGunData(r.shop)
+        //         }else{
+        //           setAuth('');
+        //           AsyncStorage.setItem('@token', '') 
+        //       } 
+        //       }))
+        // }
 
-        }
+        setSecondsToRefresh(getSecondsToRefresh());
+
       }, 1000)
       return ()=>clearTimeout(timer);
-    })
+    }, [secondsToRefresh])
     
     return (
       <View style={styles.container}>

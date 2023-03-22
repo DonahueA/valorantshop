@@ -7,4 +7,7 @@ export const tierColors ={
     '411e4a55-4e59-7757-41f0-86a53f101bb5' : '#3a3a1e' //ElderFlame Vandal
 }
 
-export const BASE_URL = "http://192.168.0.116:3000"
+export const BASE_URL = "https://valorantshop.app" //DEV 192.168.0.116:3000
+
+export const user_agent = "RiotClient/62.0.4.4878570.4789131 rso-auth (Windows;10;;Professional, x64)";
+
