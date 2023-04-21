@@ -3,41 +3,16 @@ import { StatusBar } from "expo-status-bar";
 import React, { useContext, useState } from "react";
 import { Keyboard, Text, View, Image, TextInput, Button } from "react-native";
 import { AuthContext } from "../AuthContext";
-import { BASE_URL } from "../Constants";
 
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { authRequest, getRegion, mfaRequest } from "../api";
-
-async function registerForPushNotificationsAsync() {
-  let token;
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      //TODO Handle.
-      //alert('Failed to get push token for push notification!');
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync({experienceId:'@donahue/ValorantShop'})).data;
-    
-    console.log(token);
-  } else {
-    alert('Must use physical device for Push Notifications');
-  }
-
-  return token;
-}
+import { authRequest, getEntitlement, getMMR, getPuuid, getRegion, mfaRequest } from "../api";
 
 
 
 
-export function AuthScreen(){
-  const { setAuth } : any = useContext(AuthContext);
+
+
+export function AuthScreen({isModal, navigation} : {navigation: any, isModal? : boolean}){
+  const { auth, setAuth }  = useContext(AuthContext);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loggingIn, setLoggingIn] = useState<"LOGIN" | "MFA">("LOGIN");
@@ -48,6 +23,13 @@ export function AuthScreen(){
   return (<View style={{width: '100%', height: '100%', backgroundColor: "#1B1B1B", padding:30, paddingTop: 60}}>
       <StatusBar style='light'/>
 
+    {isModal && 
+      <View>
+        <Text style={{color: 'white', fontSize: 32, fontWeight: '700', }}>Add an account</Text>
+        
+      </View>
+    }
+    {!isModal && 
     <View style={{flexDirection: 'row', alignItems: 'flex-end',}}>
       <Image source={require("../assets/shopping-cart-white.png")}  style={{width: 100, height: 100}}/>
       <View style={{marginLeft: 8}}>
@@ -55,6 +37,7 @@ export function AuthScreen(){
         <Text style={{color: '#EB0029', fontSize: 40, fontWeight: '700'}}>Shop</Text>
       </View>
     </View> 
+    }
     { loggingIn == "LOGIN" &&   
      <View style={{marginTop: 16}}>
       <TextInput placeholder='Username' onChangeText={text => setUsername(text)} autoCorrect={false} autoComplete='username' autoCapitalize='none' style={{padding: 20, backgroundColor: 'white', borderRadius: 3}} />
@@ -88,12 +71,41 @@ export function AuthScreen(){
                 //});
               }else{
                 const regionData = await getRegion(response.access_token, response.id_token)
-                console.log(regionData.affinities.live)
-                AsyncStorage.setItem('@auth', JSON.stringify({access_token: response.access_token, region: regionData.affinities.live}))
-                setAuth({access_token: response.access_token, region: regionData.affinities.live})
+                const data = await getPuuid(response.access_token);
+
+                AsyncStorage.setItem('@auth', JSON.stringify([{username: username, password: password, access_token: response.access_token, cookie: response.cookie, region: regionData.affinities.live as string,game_name: data.acct.game_name, tag_line: data.acct.tag_line, mfa: false, authvalid: true, shopdata: null}]))
+                
+                const newAccount =  {username: username, password: password, access_token: response.access_token, cookie: response.cookie, region: regionData.affinities.live as string, game_name: data.acct.game_name, tag_line: data.acct.tag_line, mfa: false, authvalid: true, shopdata: null}
+
+                setAuth((prev)=>{
+                  if(prev){
+
+                    if(prev.findIndex( account => account.username == username ) != -1){
+                      const index = prev.findIndex( account => account.username == username )
+                      prev[index] = newAccount
+                      AsyncStorage.setItem('@auth', JSON.stringify(prev));
+                      return prev
+
+                    }else{
+
+                      AsyncStorage.setItem('@auth', JSON.stringify([...prev, newAccount]));
+                      return [...prev,  newAccount]
+
+                    }
+                    
+                  }
+                  AsyncStorage.setItem('@auth', JSON.stringify([newAccount]));
+
+                  return [newAccount]
+                })
+
+                if(navigation){
+                  navigation.navigate('default')
+                }
               }
                 
             }catch(e){
+              setIsLoading(false)
               if(e == "auth_failure"){
                 setError("Incorrect username or password.")
               }else{
@@ -132,9 +144,29 @@ export function AuthScreen(){
                     setError("Could not connect to Riot servers")
                   }
                 }else{
+                
+                  
                 const regionData = await getRegion(result.access_token, result.id_token)
-                AsyncStorage.setItem('@auth', JSON.stringify({access_token: result.access_token, region: regionData.affinities.live}))
-                setAuth({access_token: result.access_token, region: regionData.affinities.live})
+
+                const data = await getPuuid(result.access_token);
+
+                AsyncStorage.setItem('@auth', JSON.stringify([{username: username, password: password ,access_token: result.access_token, cookie: result.cookie, region: regionData.affinities.live as string,game_name: data.acct.game_name, tag_line: data.acct.tag_line, mfa: false, authvalid: true, shopdata: null}]))
+                
+                const newAccount =  {username: username, password: password ,access_token: result.access_token, cookie: result.cookie, region: regionData.affinities.live as string, game_name: data.acct.game_name, tag_line: data.acct.tag_line, mfa: false, authvalid: true, shopdata: null}
+
+                setAuth((prev)=>{
+                  if(prev){
+                    AsyncStorage.setItem('@auth', JSON.stringify([...prev, newAccount]));
+                    return [...prev,  newAccount]
+                  }
+                  AsyncStorage.setItem('@auth', JSON.stringify([newAccount]));
+
+                  return [newAccount]
+                })
+
+                if(navigation){
+                  navigation.navigate('default')
+                }
 
                 }
                 

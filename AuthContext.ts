@@ -1,3 +1,8 @@
 import React, { createContext } from "react";
 
-export const AuthContext = createContext<{auth: {access_token: string, region: string} | null, setAuth: React.Dispatch<React.SetStateAction<{access_token: string, region: string}>>} | null>(null);
+export type AccountInfo = {username: string, password: string, mfa: boolean, access_token: string, cookie: string , region: string,
+    game_name: string, tag_line: string, authvalid: boolean, shopdata: any}
+
+export const AuthContext = createContext<{auth: AccountInfo[], setAuth: React.Dispatch<React.SetStateAction<AccountInfo[]>>}>(null);
+
+export const PatchContext = createContext<{gunData: any}>(null);

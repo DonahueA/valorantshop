@@ -4,6 +4,7 @@ import { Text, View, Button, Alert } from "react-native";
 import { AuthContext } from "../AuthContext";
 import DropDownPicker from 'react-native-dropdown-picker';
 
+import { cookieReauth } from "../api";
 
 import * as Notifications from 'expo-notifications';
 
@@ -36,7 +37,10 @@ export function Settings(){
               Notifications.cancelAllScheduledNotificationsAsync();
             }
             if(item.value == "ALWAYS"){
-              const result = await Notifications.getPermissionsAsync();
+              let result = await Notifications.getPermissionsAsync();
+              if(result.canAskAgain){
+                result = await Notifications.requestPermissionsAsync()
+              }
               if (!result.granted && !result.canAskAgain) {
                 Alert.alert("Missing permissions for notifications", "You must enable notifications under Settings")
                 setValue("NEVER")
@@ -54,8 +58,8 @@ export function Settings(){
                     repeats:true
                   },
                 });
-
               }else{
+                //Should never reach here.
                 setValue("NEVER");
               }
             }
@@ -63,7 +67,7 @@ export function Settings(){
           items={[
             {label: 'Daily', value: 'ALWAYS'},
             // {label: 'Favorites', value: 'FAVORITES'},
-            {label: 'Never', value: 'NEVER'}
+            {label: 'Off', value: 'NEVER'}
           ]}
           />
 
@@ -76,6 +80,14 @@ export function Settings(){
         </View> */}
         <View style={{borderWidth: 1, borderColor: '#D13639', marginTop: 10, width: 150, borderRadius: 3}}>
           <Button title='Sign Out' color={"white"} onPress={()=>{setAuth(null);AsyncStorage.setItem('@token', '') }} />
+          {/* <Button title='Delete AsyncSTorage' color={"white"} onPress={()=>{setAuth(null);AsyncStorage.clear() }} />
+          <Button title='Get AsyncStorage' color={"white"} onPress={()=>{AsyncStorage.getItem('@auth').then(r=>console.log(r)) }} />
+          <Button title='Cookie Reauth' color={"white"} onPress={()=>{
+            if(auth){
+              cookieReauth(auth[0].cookie)
+            }
+            }} /> */}
+
         </View>
       </View>
     </View>

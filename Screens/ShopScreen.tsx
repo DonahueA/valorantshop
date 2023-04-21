@@ -1,63 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useState, useEffect, useContext } from "react";
-import { View, ScrollView , StyleSheet, Image, Text, ActivityIndicator} from "react-native";
-import { AuthContext } from "../AuthContext";
+import { View, ScrollView , StyleSheet, Image, Text, ActivityIndicator, RefreshControl} from "react-native";
+import { AuthContext, PatchContext } from "../AuthContext";
 
-import { BASE_URL, tierColors, user_agent } from "../Constants";
+import { tierColors } from "../Constants";
+import { StoreFromCookie } from "../api";
 
-async function getPuuid(access_token) {
-  const response = await fetch('https://auth.riotgames.com/userinfo', {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": user_agent,
-      "Authorization": `Bearer ${access_token}`
-    }
-  })
-  return await response.json()
-
-}
-
-async function getEntitlement(access_token) {
-
-  const response = await fetch('https://entitlements.auth.riotgames.com/api/token/v1', {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "User-Agent": user_agent,
-      "Authorization": `Bearer ${access_token}`
-    }
-  })
-
-  let r = await response.json()
-  if(r.errorCode =="CREDENTIALS_EXPIRED"){
-    throw("CREDENTIALS_EXPIRED")
-  }
-  return r.entitlements_token
-}
-async function getStorefrontV2(access_token, puuid, entitlements_token, region){
-
-  const response = await fetch(`https://pd.${region}.a.pvp.net/store/v2/storefront/${puuid}`,
-   {
-      method: "GET",
-      headers: {
-        'X-Riot-Entitlements-JWT': entitlements_token,
-        "Authorization": `Bearer ${access_token}`
-      }
-    }
-  )
-
-  const result = await response.json()
-  return result
-}
-
-
-async function StoreFromAccessToken(access_token, region){
-  const puuid =  await getPuuid(access_token);
-  const entitlements_token = await getEntitlement(access_token);
-  const shop = await getStorefrontV2(access_token, puuid.sub, entitlements_token, region);
-  return shop
-}
 
 const tierImages = {
     '0cebb8be-46d7-c12a-d306-e9907bfc5a25' : require('../assets/0cebb8be-46d7-c12a-d306-e9907bfc5a25.png'),
@@ -91,7 +39,7 @@ function GunComponent({displayName, themeUuid, contentTierUuid, displayIcon, pri
         Image.getSize(displayIcon, (width, height)  => {setSize({width: width, height: height })}, (error) =>{})
 
       }
-    }, [])
+    }, [displayIcon])
     return <View style={[gunCard.gunCard,     {backgroundColor: tierColors[contentTierUuid]},]}>
   
       <View style={{ position: 'absolute', top: 10, right: 10}}>
@@ -155,78 +103,110 @@ function secondsToHHMMSS(seconds){
 
 export function ShopScreen(initialParams) {
     
+    const {gunData} = useContext(PatchContext);
     const {auth, setAuth} = useContext(AuthContext);
-  
-    let [gunData, setGunData] = useState([]);
-
     let [secondsToRefresh, setSecondsToRefresh] = useState(getSecondsToRefresh());
     
+    const updateData = ()=>{
+      if(gunData){
+        auth.map(async (account, index) =>{
+          return await StoreFromCookie(account.cookie, account.region).then(r=>
+            {
+              //r.data.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
+              const newData = r.SkinsPanelLayout.SingleItemOffers.map((val: string, ind: number) => {
 
+                return {
+                    uuid: val,
+                    ...gunData[val],
+  
+                    price: r.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
+                }
+              }) 
+              
+              setAuth((prevAuth)=>{
+                prevAuth[index].shopdata = newData
+                AsyncStorage.setItem('@auth', JSON.stringify(prevAuth))
+                return prevAuth
+              })
+          // })
+            }).catch(e=>{
+              console.log(`Update failure ${account.username}`)
+              console.log(e)
+              setAuth((prevAuth)=>{
+                prevAuth[index].authvalid = false;
+                AsyncStorage.setItem('@auth', JSON.stringify(prevAuth))
+                return prevAuth
+              })
+  
+            })
+        })
+      }   
+
+
+    }
+    //Update Data
     useEffect(()=>{
+      let IntervalId;
+      
 
-      if(!auth){
-        return;
+      updateData()
+
+      const ref = setTimeout(()=>{
+        updateData()
+        
+        IntervalId = setInterval(()=>{
+          updateData()
+        }, 24*60*60*1000)
+
+      }, getSecondsToRefresh() *1000 + 2000 )
+      return ()=>{
+        clearTimeout(ref)
+        clearInterval(IntervalId)
       }
-      let isActive = true;
-      // fetch(BASE_URL + "/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
-      //   data=> data.json().then(r => {
-      //     if (r.success){
-      //         setGunData(r.shop)
-      //       }else{
-      //         setAuth('');
-      //         AsyncStorage.setItem('@token', '') 
-      //     } 
-      //     }))
-        StoreFromAccessToken(auth.access_token, auth.region).then(r=>
-          {
-            //r.data.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
-            setGunData(r.SkinsPanelLayout.SingleItemOffers.map((val: string, ind: number) => {
-              return {
-                  uuid: val,
-                  ...initialParams.route.params.gunData[val],
+    },[auth]);
 
-                  price: r.SkinsPanelLayout.SingleItemStoreOffers[ind].Cost['85ad13f7-3d1b-5128-9eb2-7cd8ee0b5741']
-              }
-            }))
-        // })
-          }).catch(e=>{
-            console.log("Expired/signed out")
-            console.log(e)
-            setAuth(null)
-          })
 
-      
-
-      return ()=>{isActive = false}
-      
-    }, [])
-
+    //Timer
     useEffect(()=>{
       let timer = setInterval(()=>{
-        // if(secondsToRefresh == 0){
-
-        //   fetch(BASE_URL + "/api/getShop", {method: 'POST', body: JSON.stringify({id: auth})}).then(
-        //     data=> data.json().then(r => {
-        //       if (r.success){
-        //           setGunData(r.shop)
-        //         }else{
-        //           setAuth('');
-        //           AsyncStorage.setItem('@token', '') 
-        //       } 
-        //       }))
-        // }
-
         setSecondsToRefresh(getSecondsToRefresh());
 
       }, 1000)
       return ()=>clearTimeout(timer);
     }, [secondsToRefresh])
     
+
+    const [refreshing, setRefreshing] = useState(false);
+    const handleRefresh = () => {
+      // Set refreshing state to true to indicate that the view is refreshing
+      setRefreshing(true);
+  
+      // Perform your refresh action here, e.g. fetch data from an API
+      updateData();
+      // After the refresh action is completed, set refreshing state to false
+      // to indicate that the view is no longer refreshing
+      setRefreshing(false);
+    }
+
     return (
       <View style={styles.container}>
         <Text style={{alignSelf: 'flex-start', color: 'white'}}>Resets in {secondsToHHMMSS(secondsToRefresh)}</Text>
-        <ScrollView style={styles.gunCardWrapper}>
-          {gunData.map((f, index)=> <GunComponent key={index} price={f.price} contentTierUuid={f.contentTierUuid} displayIcon={f.displayIcon} displayName={f.displayName} themeUuid={f.themeUuid} />)}
+        <ScrollView style={styles.gunCardWrapper}  refreshControl={<RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor="white" // Set the color of the refresh spinner to white
+          colors={['white']}
+        />}>
+          {auth.map(({username, shopdata, game_name, tag_line}, userIndex) => {
+
+            return (<View key={userIndex}><Text style={{fontSize: 36, color: "#FFF", marginTop: userIndex==0 ? 0 : 16}}>{game_name}<Text style={{fontSize:24, color:"#707070"}}>#{tag_line}</Text></Text>
+            {shopdata && shopdata.map((f, index)=>{
+                return <GunComponent key={index} price={f.price} contentTierUuid={f.contentTierUuid} displayIcon={f.displayIcon} displayName={f.displayName} themeUuid={f.themeUuid} />
+              }
+            )}
+            
+            </View>);
+          })}
         </ScrollView>
       </View>
     );

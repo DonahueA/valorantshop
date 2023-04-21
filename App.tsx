@@ -18,33 +18,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function registerForPushNotificationsAsync() {
-  let token;
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    if (finalStatus !== 'granted') {
-      //TODO Handle.
-      //alert('Failed to get push token for push notification!');
-      return;
-    }
-    token = (await Notifications.getExpoPushTokenAsync({experienceId:'@donahue/ValorantShop'})).data;
-    
-    console.log(token);
-  } else {
-    alert('Must use physical device for Push Notifications');
-  }
 
-  return token;
-}
 
 
 //Context
-import { AuthContext } from "./AuthContext";
+import { AccountInfo, AuthContext, PatchContext } from "./AuthContext";
 
 
 //Screens
@@ -59,6 +37,7 @@ import Settingssvg from "./assets/settings.svg";
 import Shoppingcartsvg from "./assets/shopping-cart.svg";
 import Heartsvg from "./assets/heart.svg";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AccountScreen } from './Screens/AccountScreen';
 
 let skins = require('./assets/skins.json');
 
@@ -164,19 +143,43 @@ function Splash(){
   return <View></View>
 }
 const Tab = createBottomTabNavigator();
+
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+const AccountScreenStack = createNativeStackNavigator();
+
+function DetailsScreen({navigation}) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <Text>Details!</Text>
+      <Button title="Return" onPress={()=> navigation.navigate('default')}></Button>
+    </View>
+  );
+}
+function AccountStack(){
+  return (
+
+      <AccountScreenStack.Navigator>
+            <AccountScreenStack.Screen  name="default" options={{headerShown: false}} component={AccountScreen} />
+          <AccountScreenStack.Group screenOptions={{ presentation: 'modal', headerShown: false }}>
+              <AccountScreenStack.Screen name="login" >
+              {(props) => <AuthScreen {...props} isModal={true} />}
+              </AccountScreenStack.Screen>
+          </AccountScreenStack.Group>
+      </AccountScreenStack.Navigator>
+
+  )
+}
 export default function App() {
 
   const [loading, setLoading] = useState(true);
-  const [auth, setAuth] = useState<{access_token: string, region: string} | null>(null);
-  const [gunData, setGunData] = useState({});
+  const [auth, setAuth] = useState<AccountInfo[]>(null);
+  const [gunData, setGunData] = useState<any>({gunData: null});
 
-  useEffect(() => {
-    AsyncStorage.getItem('@auth').then(token =>
-      { setAuth(JSON.parse(token)); setLoading(false)})
-  }, []);
-
+  
   //Check if we need to update the JSON
   useEffect(()=>{
+    AsyncStorage.getItem('@auth').then(token =>
+      {setAuth(JSON.parse(token));})
     AsyncStorage.getItem("@apibranch").then(async branch =>{
       //Check API version
       const newBranch  = await (await fetch('https://valorant-api.com/v1/version')).json() as {status: number, data: {
@@ -209,50 +212,26 @@ export default function App() {
 
                 try{
                   
-                  AsyncStorage.setItem("@skins", JSON.stringify(skin) )
                   AsyncStorage.setItem("@apibranch", newBranch.data.branch)
+                  AsyncStorage.setItem("@weaponskins", JSON.stringify(skin))
                   setGunData(skin)
+                  setLoading(false)
                 }catch(e){
                   //TODO
+                  console.log(e)
                 }
-                console.log("Updated!")
               }
             }
         )
       }else{//Version is not new.
-        console.log("Version is not new")
-        fetch('https://valorant-api.com/v1/weapons/skins').then(
-            async e=>{
-              //Get data then resort
-              if(e.status == 200){
-                const skin: { [key: string]: any } = {}
-                const data = await e.json()
-                data.data.forEach((element: any) => {
-                    skin[element.levels[0].uuid] = {
-                        displayName: element.displayName,
-                        themeUuid: element.themeUuid,
-                        contentTierUuid: element.contentTierUuid,
-                        displayIcon: element.levels[0].displayIcon,
-                    }
-                
-                });
-
-                try{
-                  //console.log(skin)
-                  AsyncStorage.setItem("@skins", JSON.stringify(skin) )
-                  AsyncStorage.setItem("@apibranch", newBranch.data.branch)
-                  setGunData(skin)
-                }catch(e){
-                  //TODO Diagnostic
-
-                }
-              }
-            })
+        AsyncStorage.getItem("@weaponskins").then(weaponskin=> setGunData(JSON.parse(weaponskin))).then(()=>{setLoading(false)})
 
       }
     })
 
     
+    
+      
   }, [])
 
   
@@ -263,26 +242,38 @@ export default function App() {
   if (!auth) {
     return (
       <AuthContext.Provider value={{ auth, setAuth }}>
-        <AuthScreen />
+        <AuthScreen  navigation={null}/>
       </AuthContext.Provider>
     )
   }
 
   return (
+    <PatchContext.Provider value={{gunData: gunData}} >
     <AuthContext.Provider value={{ auth, setAuth }}>
       <NavigationContainer>
         <StatusBar style='light' />
         <Tab.Navigator screenOptions={{
           headerShown: false,
+
           tabBarActiveBackgroundColor: '#464646',
           tabBarInactiveBackgroundColor: '#333333',
           tabBarActiveTintColor: '#ffffff',
-          tabBarStyle: { borderTopWidth: 0 }
+          tabBarStyle: { borderTopWidth: 0 , backgroundColor: "#333333"},
+          
+          
         }}  >
 
-          <Tab.Screen name="Shop" component={ShopScreen} initialParams={{gunData: gunData}} options={{
+          <Tab.Screen name="Shop" 
+            component={ShopScreen} 
+            options={{
+              tabBarIcon: ({ color, size }) => (
+                 <Shoppingcartsvg color={color} />
+                ),
+              }} 
+          />
+          <Tab.Screen name="Accounts" component={AccountStack} options={{
             tabBarIcon: ({ color, size }) => (
-              <Shoppingcartsvg color={color} />
+              <Listsvg color={color} />
             ),
           }} />
           {/* <Tab.Screen name="Favorites" component={Filter} options={{
@@ -298,6 +289,7 @@ export default function App() {
         </Tab.Navigator>
       </NavigationContainer>
     </AuthContext.Provider>
+    </PatchContext.Provider>
 
   );
 }
